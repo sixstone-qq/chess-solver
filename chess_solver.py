@@ -25,6 +25,9 @@ class ChessBoard(object):
                 else:
                         return None
 
+        def __repr__(self):
+                return str(self)
+
         def __str__(self):
                 ret = ""
                 for row in self.board:
