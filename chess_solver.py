@@ -1,4 +1,6 @@
 #!/usr/bin/python
+from copy import deepcopy
+from itertools import permutations
 
 
 class ChessBoard(object):
@@ -54,7 +56,15 @@ class ChessBoard(object):
                         return available
 
 
-class King(object):
+class Piece(object):
+        def __eq__(self, other):
+                return type(self) == type(other)
+
+        def __repr__(self):
+                return self.__class__.__name__[0]
+
+
+class King(Piece):
         def place(self, row, col, chess_board):
                 if (chess_board.val(row, col) is None and
                    chess_board.val(row - 1, col - 1) in ('x', None) and
@@ -79,7 +89,7 @@ class King(object):
                         return False
 
 
-class Rook(object):
+class Rook(Piece):
         def place(self, row, col, chess_board):
                 if (all([chess_board.val(row, j) in ('x', None) for j in xrange(chess_board.n_cols)] +
                         [chess_board.val(i, col) in ('x', None) for i in xrange(chess_board.n_rows)])):
@@ -95,38 +105,69 @@ class Rook(object):
                         return False
 
 
+class Knight(Piece):
+        def __repr__(self):
+                return 'N'  # To avoid King confusion
+
+        def place(self, row, col, chess_board):
+                if (chess_board.val(row, col) is None and
+                   chess_board.val(row + 2, col + 1) in ('x', None) and
+                   chess_board.val(row + 2, col - 1) in ('x', None) and
+                   chess_board.val(row + 1, col + 2) in ('x', None) and
+                   chess_board.val(row + 1, col - 2) in ('x', None) and
+                   chess_board.val(row - 2, col + 1) in ('x', None) and
+                   chess_board.val(row - 2, col - 1) in ('x', None) and
+                   chess_board.val(row - 1, col + 2) in ('x', None) and
+                   chess_board.val(row - 1, col - 2) in ('x', None)):
+                        chess_board.take(row, col, 'N')
+                        chess_board.take(row + 2, col + 1, 'x')
+                        chess_board.take(row + 2, col - 1, 'x')
+                        chess_board.take(row + 1, col + 2, 'x')
+                        chess_board.take(row + 1, col - 2, 'x')
+                        chess_board.take(row - 2, col + 1, 'x')
+                        chess_board.take(row - 2, col - 1, 'x')
+                        chess_board.take(row - 1, col + 2, 'x')
+                        chess_board.take(row - 1, col - 2, 'x')
+                        return True
+                else:
+                        return False
+
+
 board = (3, 3)
 
 
-def solve(n_rows, n_columns, n_kings, n_rooks):
+def solve(n_rows, n_columns, n_kings, n_rooks, n_knights):
         solutions = set()
         # Set the pieces in high order
-        pieces = [Rook()] * n_rooks + [King()] * n_kings
-        for n_piece, piece in enumerate(pieces):
+        pieces = [Rook()] * n_rooks + [Knight()] * n_knights + [King()] * n_kings
+        for piece in set(pieces):
                 for row in xrange(n_rows):
                         for col in xrange(n_columns):
                                 # Empty board
-                                chess_board = ChessBoard(n_rows, n_columns)
-                                placed = piece.place(row, col, chess_board)
-                                found = False
-                                for o_p, other in enumerate(pieces):
-                                        if n_piece == o_p:
-                                                continue
-                                        # Find the right place
+                                other_pieces = deepcopy(pieces)
+                                other_pieces.remove(piece)
+                                for p in set(permutations(other_pieces)):
+                                        chess_board = ChessBoard(n_rows, n_columns)
+                                        placed = piece.place(row, col, chess_board)
                                         found = False
-                                        for free in chess_board.available():
-                                                placed = other.place(free[0], free[1], chess_board)
-                                                if placed:
-                                                        found = True
+                                        for other in p:
+                                                # Find the right place
+                                                found = False
+                                                for free in chess_board.available():
+                                                        placed = other.place(free[0], free[1], chess_board)
+                                                        if placed:
+                                                                found = True
+                                                                break
+                                                if not found:
+                                                        # No viable branch
                                                         break
-                                        if not found:
-                                                # No viable branch
-                                                break
-                                if found:
-                                        solutions.add(chess_board)
+                                        if found:
+                                                solutions.add(chess_board)
 
         return solutions
 
-sols = solve(3, 3, 0, 2)
+
+sols = solve(4, 4, 0, 2, 4)
 for sol in sols:
         sol.dump()
+print "\nNumber of solutions: {}".format(len(sols))
