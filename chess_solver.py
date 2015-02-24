@@ -89,6 +89,24 @@ class King(Piece):
                         return False
 
 
+class Bishop(Piece):
+        def place(self, row, col, chess_board):
+                # Diagonals
+                n_up = row - col
+                n_down = row + col
+                if (chess_board.val(row, col) is None and
+                   all([chess_board.val(i + n_up, i) in ('x', None) and
+                        chess_board.val(n_down - i, i) in ('x', None) for i in xrange(chess_board.n_cols) if i != col])):
+                        chess_board.take(row, col, 'B')
+                        for i in xrange(chess_board.n_cols):
+                                if i != col:
+                                        chess_board.take(i + n_up, i, 'x')
+                                        chess_board.take(n_down - i, i, 'x')
+                        return True
+                else:
+                        return False
+
+
 class Rook(Piece):
         def place(self, row, col, chess_board):
                 if (all([chess_board.val(row, j) in ('x', None) for j in xrange(chess_board.n_cols)] +
@@ -133,13 +151,11 @@ class Knight(Piece):
                         return False
 
 
-board = (3, 3)
-
-
-def solve(n_rows, n_columns, n_kings, n_rooks, n_knights):
+def solve(n_rows, n_columns, n_kings, n_bishops, n_rooks, n_knights):
         solutions = set()
-        # Set the pieces in high order
-        pieces = [Rook()] * n_rooks + [Knight()] * n_knights + [King()] * n_kings
+        # Set the pieces in relative importance order
+        pieces = [Rook()] * n_rooks + [Bishop()] * n_bishops + [Knight()] * n_knights + \
+                 [King()] * n_kings
         for piece in set(pieces):
                 for row in xrange(n_rows):
                         for col in xrange(n_columns):
@@ -167,7 +183,7 @@ def solve(n_rows, n_columns, n_kings, n_rooks, n_knights):
         return solutions
 
 
-sols = solve(4, 4, 0, 2, 4)
+sols = solve(4, 4, 0, 5, 0, 0)
 for sol in sols:
         sol.dump()
 print "\nNumber of solutions: {}".format(len(sols))
