@@ -103,6 +103,30 @@ class King(Piece):
             return False
 
 
+class Queen(Piece):
+    def place(self, row, col, chess_board):
+        # Diagonals
+        n_up = row - col
+        n_down = row + col
+        if (chess_board.val(row, col) is None and
+           all(chess_board.val(i + n_up, i) in ('x', None) and
+               chess_board.val(n_down - i, i) in ('x', None) and
+               chess_board.val(row, i)  in ('x', None) for i in xrange(chess_board.n_cols) if i != col) and
+           all(chess_board.val(j, col) in ('x', None) for j in xrange(chess_board.n_rows))):
+            chess_board.take(row, col, 'Q')
+            for i in xrange(chess_board.n_cols):
+                if i != col:
+                    chess_board.take(i + n_up, i, 'x')
+                    chess_board.take(n_down - i, i, 'x')
+                    chess_board.take(row, i, 'x')
+            for j in xrange(chess_board.n_rows):
+                if j != row:
+                    chess_board.take(j, col, 'x')
+            return True
+        else:
+            return False
+
+
 class Bishop(Piece):
     def place(self, row, col, chess_board):
         # Diagonals
@@ -165,25 +189,29 @@ class Knight(Piece):
                 return False
 
 
-def solve(n_rows, n_columns, n_kings, n_bishops, n_rooks, n_knights):
+def solve(n_rows, n_columns, n_kings, n_queens, n_bishops, n_rooks, n_knights):
     solutions = set()
     # Set the pieces in relative importance order
-    pieces = [Rook()] * n_rooks + [Bishop()] * n_bishops + [Knight()] * n_knights + \
-             [King()] * n_kings
+    pieces = [Queen()] * n_queens + [Rook()] * n_rooks + [Bishop()] * n_bishops \
+             + [Knight()] * n_knights + [King()] * n_kings
     for piece in set(pieces):
         for row in xrange(n_rows):
             for col in xrange(n_columns):
                 # Empty board
                 other_pieces = deepcopy(pieces)
                 other_pieces.remove(piece)
-                for p in set(permutations(other_pieces)):
+                for per in set(permutations(other_pieces)):
                     chess_board = ChessBoard(n_rows, n_columns)
                     placed = piece.place(row, col, chess_board)
-                    found = False
-                    for other in p:
+                    found = True
+                    for i, other in enumerate(per):
                         # Find the right place
                         found = False
-                        for free in chess_board.available():
+                        # Optimisation
+                        available = chess_board.available()
+                        if len(available) < len(per) - i:
+                            break
+                        for free in available:
                             placed = other.place(free[0], free[1], chess_board)
                             if placed:
                                 found = True
@@ -212,6 +240,8 @@ if __name__ == '__main__':
                         default='7x7', help="Set the board size using format MxN. Default: 7x7")
     parser.add_argument('--kings', '-k', type=int,
                         help="Number of kings in the chess board. Default: 2")
+    parser.add_argument('--queens', '-q', type=int,
+                        help="Number of queens in the chess board. Default: 2")
     parser.add_argument('--bishops', '-b', type=int,
                         help="Number of bishops in the chess board. Default: 2")
     parser.add_argument('--rooks', '-r', type=int,
@@ -225,9 +255,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # if all piece arguments are None, then set the defaults
-    pieces_names = ('kings', 'bishops', 'rooks', 'knights')
+    pieces_names = ('kings', 'queens', 'bishops', 'rooks', 'knights')
     if all([getattr(args, arg_name) is None for arg_name in pieces_names]):
             args.kings = 2
+            args.queens = 2
             args.bishops = 2
             args.rooks = 0
             args.knights = 1
@@ -237,7 +268,9 @@ if __name__ == '__main__':
                 if getattr(args, arg_name) is None:
                     setattr(args, arg_name, 0)
 
-    sols = solve(args.board[0], args.board[1], args.kings, args.bishops, args.rooks, args.knights)
+    sols = solve(n_rows=args.board[0], n_columns=args.board[1],
+                 n_kings=args.kings, n_queens=args.queens,
+                 n_bishops=args.bishops, n_rooks=args.rooks, n_knights=args.knights)
     for sol in sols:
         sol.dump()
     print "\nNumber of solutions: {}".format(len(sols))
