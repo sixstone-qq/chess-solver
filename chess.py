@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+Library to resolve chess configurations
+"""
 from copy import deepcopy
 
 
@@ -111,7 +114,7 @@ class King(Piece):
            chess_board.val(row + 1, col - 1) in ('x', None) and
            chess_board.val(row + 1, col) in ('x', None) and
            chess_board.val(row + 1, col + 1) in ('x', None)):
-            chess_board.take(row, col, 'K')
+            chess_board.take(row, col, repr(self))
             chess_board.take(row - 1, col - 1, 'x')
             chess_board.take(row - 1, col, 'x')
             chess_board.take(row - 1, col + 1, 'x')
@@ -136,7 +139,7 @@ class Queen(Piece):
                chess_board.val(n_down - i, i) in ('x', None) and
                chess_board.val(row, i) in ('x', None) for i in xrange(chess_board.n_cols) if i != col) and
            all(chess_board.val(j, col) in ('x', None) for j in xrange(chess_board.n_rows))):
-            chess_board.take(row, col, 'Q')
+            chess_board.take(row, col, repr(self))
             for i in xrange(chess_board.n_cols):
                 if i != col:
                     chess_board.take(i + n_up, i, 'x')
@@ -159,7 +162,7 @@ class Bishop(Piece):
         if (chess_board.val(row, col) is None and
            all([chess_board.val(i + n_up, i) in ('x', None) and
                 chess_board.val(n_down - i, i) in ('x', None) for i in xrange(chess_board.n_cols) if i != col])):
-            chess_board.take(row, col, 'B')
+            chess_board.take(row, col, repr(self))
             for i in xrange(chess_board.n_cols):
                 if i != col:
                     chess_board.take(i + n_up, i, 'x')
@@ -174,7 +177,7 @@ class Rook(Piece):
     def place(self, row, col, chess_board):
         if (all([chess_board.val(row, j) in ('x', None) for j in xrange(chess_board.n_cols)] +
                 [chess_board.val(i, col) in ('x', None) for i in xrange(chess_board.n_rows)])):
-                chess_board.take(row, col, 'R')
+                chess_board.take(row, col, repr(self))
                 for j in xrange(0, chess_board.n_cols):
                     if j != col and chess_board.val(row, j) is None:
                         chess_board.take(row, j, 'x')
@@ -201,7 +204,7 @@ class Knight(Piece):
            chess_board.val(row - 2, col - 1) in ('x', None) and
            chess_board.val(row - 1, col + 2) in ('x', None) and
            chess_board.val(row - 1, col - 2) in ('x', None)):
-            chess_board.take(row, col, 'N')
+            chess_board.take(row, col, repr(self))
             chess_board.take(row + 2, col + 1, 'x')
             chess_board.take(row + 2, col - 1, 'x')
             chess_board.take(row + 1, col + 2, 'x')
@@ -239,7 +242,7 @@ def lsolve(piece, piece_list, chess_board):
     return lsolutions
 
 
-def solve(n_rows, n_columns, n_kings, n_queens, n_bishops, n_rooks, n_knights):
+def solve(n_rows, n_columns, n_kings=0, n_queens=0, n_bishops=0, n_rooks=0, n_knights=0):
     """Place in a board of *n_rows* x *n_columns* with the pieces set as arguments
     all the possible unique configurations where none of the pieces is in a
     position to take any of the others.
