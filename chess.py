@@ -9,6 +9,11 @@ from copy import deepcopy
 class ChessBoard(object):
     """
     Representation of a chess board
+
+    Public attributes:
+
+    * :py:attr:`board` matrix
+    * :py:attr:`n_left` the number of free positions and not under attack
     """
     def __init__(self, n_rows, n_cols):
         self.n_left = n_rows * n_cols
@@ -24,10 +29,10 @@ class ChessBoard(object):
                         this position is now under attack.
         """
         if (row >= 0 and row < self.n_rows and
-           col >= 0 and col < self.n_cols and
-           self.board[row][col] is None):
+           col >= 0 and col < self.n_cols):
+            if self.board[row][col] is None:
+                self.n_left -= 1
             self.board[row][col] = val
-            self.n_left -= 1
             # else: Out of bounds or already taken
 
     def val(self, row, col):
@@ -66,13 +71,14 @@ class ChessBoard(object):
         """Dump to standard out the current chess board"""
         print str(self)
 
-    def available(self):
+    def available(self, n_pieces_left):
         """
+        :param int n_pieces_left: number of pieces left to place
         :return: the current available positions in a generator.
                  Each time is called, a :py:class:`tuple` is returned.
         :rtype: generator
         """
-        if self.n_left > 0:
+        if self.n_left > 0 or self.n_left >= n_pieces_left:
             for i, row in enumerate(self.board):
                 for j, val in enumerate(row):
                     if val is None:
@@ -91,6 +97,15 @@ class Piece(object):
     def __repr__(self):
         return self.__class__.__name__[0]
 
+    def available_in(self, row, col, chess_board):
+        """Check if a piece can be placed in that position.
+
+        :param piece: the piece to place
+        :type piece: :py:class:`Piece`
+        :returns: True if the position is free and not under attack
+        """
+        raise NotImplemented()
+
     def place(self, row, col, chess_board):
         """Place a piece in the chessboard. It checks if the position
         to place it is free and not under attack.
@@ -104,89 +119,86 @@ class Piece(object):
 
 class King(Piece):
     """King piece."""
+    def available_in(self, row, col, chess_board):
+        return (chess_board.val(row, col) is None and
+                chess_board.val(row - 1, col - 1) in ('x', None) and
+                chess_board.val(row - 1, col) in ('x', None) and
+                chess_board.val(row - 1, col + 1) in ('x', None) and
+                chess_board.val(row, col - 1) in ('x', None) and
+                chess_board.val(row, col + 1) in ('x', None) and
+                chess_board.val(row + 1, col - 1) in ('x', None) and
+                chess_board.val(row + 1, col) in ('x', None) and
+                chess_board.val(row + 1, col + 1) in ('x', None))
+
     def place(self, row, col, chess_board):
-        if (chess_board.val(row, col) is None and
-           chess_board.val(row - 1, col - 1) in ('x', None) and
-           chess_board.val(row - 1, col) in ('x', None) and
-           chess_board.val(row - 1, col + 1) in ('x', None) and
-           chess_board.val(row, col - 1) in ('x', None) and
-           chess_board.val(row, col + 1) in ('x', None) and
-           chess_board.val(row + 1, col - 1) in ('x', None) and
-           chess_board.val(row + 1, col) in ('x', None) and
-           chess_board.val(row + 1, col + 1) in ('x', None)):
-            chess_board.take(row, col, repr(self))
-            chess_board.take(row - 1, col - 1, 'x')
-            chess_board.take(row - 1, col, 'x')
-            chess_board.take(row - 1, col + 1, 'x')
-            chess_board.take(row, col - 1, 'x')
-            chess_board.take(row, col + 1, 'x')
-            chess_board.take(row + 1, col - 1, 'x')
-            chess_board.take(row + 1, col, 'x')
-            chess_board.take(row + 1, col + 1, 'x')
-            return True
-        else:
-            return False
+        chess_board.take(row, col, repr(self))
+        chess_board.take(row - 1, col - 1, 'x')
+        chess_board.take(row - 1, col, 'x')
+        chess_board.take(row - 1, col + 1, 'x')
+        chess_board.take(row, col - 1, 'x')
+        chess_board.take(row, col + 1, 'x')
+        chess_board.take(row + 1, col - 1, 'x')
+        chess_board.take(row + 1, col, 'x')
+        chess_board.take(row + 1, col + 1, 'x')
 
 
 class Queen(Piece):
     """Queen piece."""
+    def available_in(self, row, col, chess_board):
+        # Diagonals
+        n_up = row - col
+        n_down = row + col
+        return (chess_board.val(row, col) is None and
+                all(chess_board.val(i + n_up, i) in ('x', None) and
+                    chess_board.val(n_down - i, i) in ('x', None) and
+                    chess_board.val(row, i) in ('x', None) for i in xrange(chess_board.n_cols) if i != col) and
+                all(chess_board.val(j, col) in ('x', None) for j in xrange(chess_board.n_rows)))
+
     def place(self, row, col, chess_board):
         # Diagonals
         n_up = row - col
         n_down = row + col
-        if (chess_board.val(row, col) is None and
-           all(chess_board.val(i + n_up, i) in ('x', None) and
-               chess_board.val(n_down - i, i) in ('x', None) and
-               chess_board.val(row, i) in ('x', None) for i in xrange(chess_board.n_cols) if i != col) and
-           all(chess_board.val(j, col) in ('x', None) for j in xrange(chess_board.n_rows))):
-            chess_board.take(row, col, repr(self))
-            for i in xrange(chess_board.n_cols):
-                if i != col:
-                    chess_board.take(i + n_up, i, 'x')
-                    chess_board.take(n_down - i, i, 'x')
-                    chess_board.take(row, i, 'x')
-            for j in xrange(chess_board.n_rows):
-                if j != row:
-                    chess_board.take(j, col, 'x')
-            return True
-        else:
-            return False
+        for i in xrange(chess_board.n_cols):
+            chess_board.take(i + n_up, i, 'x')
+            chess_board.take(n_down - i, i, 'x')
+            chess_board.take(row, i, 'x')
+        for j in xrange(chess_board.n_rows):
+            chess_board.take(j, col, 'x')
+        chess_board.take(row, col, repr(self))
 
 
 class Bishop(Piece):
     """Bishop piece."""
+    def available_in(self, row, col, chess_board):
+        # Diagonals
+        n_up = row - col
+        n_down = row + col
+        return (chess_board.val(row, col) is None and
+                all([chess_board.val(i + n_up, i) in ('x', None) and
+                     chess_board.val(n_down - i, i) in ('x', None) for i in xrange(chess_board.n_cols) if i != col]))
+
     def place(self, row, col, chess_board):
         # Diagonals
         n_up = row - col
         n_down = row + col
-        if (chess_board.val(row, col) is None and
-           all([chess_board.val(i + n_up, i) in ('x', None) and
-                chess_board.val(n_down - i, i) in ('x', None) for i in xrange(chess_board.n_cols) if i != col])):
-            chess_board.take(row, col, repr(self))
-            for i in xrange(chess_board.n_cols):
-                if i != col:
-                    chess_board.take(i + n_up, i, 'x')
-                    chess_board.take(n_down - i, i, 'x')
-            return True
-        else:
-            return False
+        for i in xrange(chess_board.n_cols):
+            chess_board.take(i + n_up, i, 'x')
+            chess_board.take(n_down - i, i, 'x')
+        chess_board.take(row, col, repr(self))
 
 
 class Rook(Piece):
     """Rook piece."""
+    def available_in(self, row, col, chess_board):
+        return (all([chess_board.val(row, j) in ('x', None) for j in xrange(chess_board.n_cols)] +
+                    [chess_board.val(i, col) in ('x', None) for i in xrange(chess_board.n_rows)]))
+
     def place(self, row, col, chess_board):
-        if (all([chess_board.val(row, j) in ('x', None) for j in xrange(chess_board.n_cols)] +
-                [chess_board.val(i, col) in ('x', None) for i in xrange(chess_board.n_rows)])):
-                chess_board.take(row, col, repr(self))
-                for j in xrange(0, chess_board.n_cols):
-                    if j != col and chess_board.val(row, j) is None:
-                        chess_board.take(row, j, 'x')
-                for i in xrange(0, chess_board.n_rows):
-                    if i != row and chess_board.val(i, col) is None:
-                        chess_board.take(i, col, 'x')
-                return True
-        else:
-                return False
+        for j in xrange(0, chess_board.n_cols):
+            chess_board.take(row, j, 'x')
+        for i in xrange(0, chess_board.n_rows):
+            chess_board.take(i, col, 'x')
+        chess_board.take(row, col, repr(self))
 
 
 class Knight(Piece):
@@ -194,28 +206,27 @@ class Knight(Piece):
     def __repr__(self):
         return 'N'  # To avoid King confusion
 
+    def available_in(self, row, col, chess_board):
+        return (chess_board.val(row, col) is None and
+                chess_board.val(row + 2, col + 1) in ('x', None) and
+                chess_board.val(row + 2, col - 1) in ('x', None) and
+                chess_board.val(row + 1, col + 2) in ('x', None) and
+                chess_board.val(row + 1, col - 2) in ('x', None) and
+                chess_board.val(row - 2, col + 1) in ('x', None) and
+                chess_board.val(row - 2, col - 1) in ('x', None) and
+                chess_board.val(row - 1, col + 2) in ('x', None) and
+                chess_board.val(row - 1, col - 2) in ('x', None))
+
     def place(self, row, col, chess_board):
-        if (chess_board.val(row, col) is None and
-           chess_board.val(row + 2, col + 1) in ('x', None) and
-           chess_board.val(row + 2, col - 1) in ('x', None) and
-           chess_board.val(row + 1, col + 2) in ('x', None) and
-           chess_board.val(row + 1, col - 2) in ('x', None) and
-           chess_board.val(row - 2, col + 1) in ('x', None) and
-           chess_board.val(row - 2, col - 1) in ('x', None) and
-           chess_board.val(row - 1, col + 2) in ('x', None) and
-           chess_board.val(row - 1, col - 2) in ('x', None)):
-            chess_board.take(row, col, repr(self))
-            chess_board.take(row + 2, col + 1, 'x')
-            chess_board.take(row + 2, col - 1, 'x')
-            chess_board.take(row + 1, col + 2, 'x')
-            chess_board.take(row + 1, col - 2, 'x')
-            chess_board.take(row - 2, col + 1, 'x')
-            chess_board.take(row - 2, col - 1, 'x')
-            chess_board.take(row - 1, col + 2, 'x')
-            chess_board.take(row - 1, col - 2, 'x')
-            return True
-        else:
-            return False
+        chess_board.take(row, col, repr(self))
+        chess_board.take(row + 2, col + 1, 'x')
+        chess_board.take(row + 2, col - 1, 'x')
+        chess_board.take(row + 1, col + 2, 'x')
+        chess_board.take(row + 1, col - 2, 'x')
+        chess_board.take(row - 2, col + 1, 'x')
+        chess_board.take(row - 2, col - 1, 'x')
+        chess_board.take(row - 1, col + 2, 'x')
+        chess_board.take(row - 1, col - 2, 'x')
 
 
 def lsolve(piece, piece_list, chess_board):
@@ -229,13 +240,13 @@ def lsolve(piece, piece_list, chess_board):
     :rtype: :py:class:`frozenset` of :py:class:`ChessBoard` objects
     """
     lsolutions = frozenset()
-    for free in chess_board.available():
-        updated_chess_board = deepcopy(chess_board)
-        placed = piece.place(free[0], free[1], updated_chess_board)
-        if placed:
+    for free in chess_board.available(len(piece_list) + 1):
+        if piece.available_in(free[0], free[1], chess_board):
+            updated_chess_board = deepcopy(chess_board)
+            piece.place(free[0], free[1], updated_chess_board)
             if piece_list:
                 head, tail = piece_list[0], piece_list[1:]
-                new_lsolutions = lsolve(head, tail, deepcopy(updated_chess_board))
+                new_lsolutions = lsolve(head, tail, updated_chess_board)
                 lsolutions = lsolutions.union(new_lsolutions)
             else:
                 lsolutions = frozenset((updated_chess_board,))
