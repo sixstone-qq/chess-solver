@@ -22,8 +22,8 @@ def board(string):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Chess pieces puzzle solver",
-                                     epilog="If any piece is set different from default other defaults are ignored.")
+    parser = argparse.ArgumentParser(description="Chess pieces puzzle solver.",
+                                     epilog="If any piece is set with a value, other default values are ignored.")
     parser.add_argument('--board', '-B', type=board,
                         default='7x7', help="Set the board size using format MxN. Default: 7x7")
     parser.add_argument('--kings', '-k', type=int,
