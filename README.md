@@ -23,3 +23,11 @@ optional arguments:
 
 If any piece is set with a value, other default values are ignored.
 ```
+
+Run the tests with the following command:
+
+   > python -m unittest test_chess
+
+Create the documentation for the project:
+
+   > cd docs && make html && www-browser _build/html/index.html
