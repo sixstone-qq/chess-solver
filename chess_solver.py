@@ -3,7 +3,6 @@
 # PYTHON_ARGCOMPLETE_OK
 import argparse
 from copy import deepcopy
-from itertools import permutations
 import re
 
 
@@ -59,15 +58,11 @@ class ChessBoard(object):
         print str(self)
 
     def available(self):
-        if self.n_left == 0:
-            return []
-        else:
-            available = []
+        if self.n_left > 0:
             for i, row in enumerate(self.board):
                 for j, val in enumerate(row):
                     if val is None:
-                        available.append((i, j))
-            return available
+                        yield (i, j)
 
 
 class Piece(object):
@@ -111,7 +106,7 @@ class Queen(Piece):
         if (chess_board.val(row, col) is None and
            all(chess_board.val(i + n_up, i) in ('x', None) and
                chess_board.val(n_down - i, i) in ('x', None) and
-               chess_board.val(row, i)  in ('x', None) for i in xrange(chess_board.n_cols) if i != col) and
+               chess_board.val(row, i) in ('x', None) for i in xrange(chess_board.n_cols) if i != col) and
            all(chess_board.val(j, col) in ('x', None) for j in xrange(chess_board.n_rows))):
             chess_board.take(row, col, 'Q')
             for i in xrange(chess_board.n_cols):
@@ -189,38 +184,28 @@ class Knight(Piece):
                 return False
 
 
+def lsolve(piece, piece_list, chess_board):
+    lsolutions = frozenset()
+    for free in chess_board.available():
+        updated_chess_board = deepcopy(chess_board)
+        placed = piece.place(free[0], free[1], updated_chess_board)
+        if placed:
+            if piece_list:
+                head, tail = piece_list[0], piece_list[1:]
+                new_lsolutions = lsolve(head, tail, deepcopy(updated_chess_board))
+                lsolutions = lsolutions.union(new_lsolutions)
+            else:
+                lsolutions = frozenset((updated_chess_board,))
+    return lsolutions
+
+
 def solve(n_rows, n_columns, n_kings, n_queens, n_bishops, n_rooks, n_knights):
-    solutions = set()
     # Set the pieces in relative importance order
     pieces = [Queen()] * n_queens + [Rook()] * n_rooks + [Bishop()] * n_bishops \
              + [Knight()] * n_knights + [King()] * n_kings
-    for piece in set(pieces):
-        for row in xrange(n_rows):
-            for col in xrange(n_columns):
-                # Empty board
-                other_pieces = deepcopy(pieces)
-                other_pieces.remove(piece)
-                for per in set(permutations(other_pieces)):
-                    chess_board = ChessBoard(n_rows, n_columns)
-                    placed = piece.place(row, col, chess_board)
-                    found = True
-                    for i, other in enumerate(per):
-                        # Find the right place
-                        found = False
-                        # Optimisation
-                        available = chess_board.available()
-                        if len(available) < len(per) - i:
-                            break
-                        for free in available:
-                            placed = other.place(free[0], free[1], chess_board)
-                            if placed:
-                                found = True
-                                break
-                        if not found:
-                            # No viable branch
-                            break
-                    if found:
-                        solutions.add(chess_board)
+    chess_board = ChessBoard(n_rows, n_columns)
+    next_piece, piece_list = pieces[0], pieces[1:]
+    solutions = lsolve(next_piece, piece_list, chess_board)
 
     return solutions
 
