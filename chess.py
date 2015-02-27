@@ -3,7 +3,6 @@
 """
 Library to resolve chess configurations
 """
-from copy import deepcopy
 
 
 class ChessBoard(object):
@@ -14,39 +13,16 @@ class ChessBoard(object):
 
     * :py:attr:`board` matrix
     * :py:attr:`n_left` the number of free positions and not under attack
+    * :py:attr:`n_rows` the number of rows
+    * :py:attr:`n_cols` the number of columns
     """
     def __init__(self, n_rows, n_cols):
         self.n_left = n_rows * n_cols
         self.n_rows = n_rows
         self.n_cols = n_cols
         self.board = [[None for j in xrange(n_cols)] for i in xrange(n_rows)]
-
-    def take(self, row, col, val):
-        """
-        Take a position in the chess with `val`.
-
-        :param str val: the str representation of a piece or the 'x' to represent
-                        this position is now under attack.
-        """
-        if (row >= 0 and row < self.n_rows and
-           col >= 0 and col < self.n_cols):
-            if self.board[row][col] is None:
-                self.n_left -= 1
-            self.board[row][col] = val
-            # else: Out of bounds or already taken
-
-    def val(self, row, col):
-        """
-        Get the current value of a `(row, col)`.
-
-        :returns: the current piece in str representation. `None` if it is free or 'x' if it is under attack
-        :rtype: str
-        """
-        if (row >= 0 and row < self.n_rows and
-           col >= 0 and col < self.n_cols):
-            return self.board[row][col]
-        else:
-            return None
+        self.solution = []
+        self._placement_stack = []
 
     def __repr__(self):
         return str(self)
@@ -64,25 +40,41 @@ class ChessBoard(object):
         else:
             return False
 
-    def __hash__(self):
-        return hash(tuple(hash(tuple(row)) for row in self.board))
-
-    def dump(self):
-        """Dump to standard out the current chess board"""
-        print str(self)
-
     def available(self, n_pieces_left):
         """
         :param int n_pieces_left: number of pieces left to place
-        :return: the current available positions in a generator.
-                 Each time is called, a :py:class:`tuple` is returned.
-        :rtype: generator
+        :return: the current available positions in a :py:class:`list` of tuples.
+        :rtype: :py:class:`list` instance
         """
+        available = []
         if self.n_left > 0 or self.n_left >= n_pieces_left:
             for i, row in enumerate(self.board):
                 for j, val in enumerate(row):
                     if val is None:
-                        yield (i, j)
+                        available.append((i, j))
+        return available
+
+    def is_free(self, piece, row, col):
+        """Is this position free for the given :py:class:`Piece`
+        """
+        return (self.board[row][col] is None and
+                all(self.board[i][j] in ('x', None) for (i, j) in piece.attacking_pos(row, col, self) if i >= 0 and j >= 0 and i < self.n_rows and j < self.n_cols))
+
+    def place(self, piece, row, col):
+        """Place a :py:class:`Piece` in a (row, col) position
+        """
+        pos_set = [(i, j, 'x') for (i, j) in piece.attacking_pos(row, col, self) if i >= 0 and j >= 0 and i < self.n_rows and j < self.n_cols and self.board[i][j] is None]
+        pos_set.insert(0, (row, col, repr(piece)))
+        self._placement_stack.append(len(pos_set))
+        self.solution.extend(pos_set)
+        for (i, j, s) in pos_set:
+            self.board[i][j] = s
+
+    def undo_last_placement(self):
+        """Undo the last place call."""
+        for _ in xrange(self._placement_stack.pop()):
+            (i, j, s) = self.solution.pop()
+            self.board[i][j] = None
 
 
 class Piece(object):
@@ -97,108 +89,53 @@ class Piece(object):
     def __repr__(self):
         return self.__class__.__name__[0]
 
-    def available_in(self, row, col, chess_board):
-        """Check if a piece can be placed in that position.
-
-        :param piece: the piece to place
-        :type piece: :py:class:`Piece`
-        :returns: True if the position is free and not under attack
+    def attacking_pos(self, row, col):
         """
-        raise NotImplemented()
-
-    def place(self, row, col, chess_board):
-        """Place a piece in the chessboard. It checks if the position
-        to place it is free and not under attack.
-
-        :param chess_board: the chess board to check and update.
-        :type chess_board: :py:class:`ChessBoard`
-        :returns: True if the piece was placed, false otherwise
+        :returns: the places where the piece can attack given a position
+        :rtype: :py:class:`generator` instance
         """
         raise NotImplemented()
 
 
 class King(Piece):
     """King piece."""
-    def available_in(self, row, col, chess_board):
-        return (chess_board.val(row, col) is None and
-                chess_board.val(row - 1, col - 1) in ('x', None) and
-                chess_board.val(row - 1, col) in ('x', None) and
-                chess_board.val(row - 1, col + 1) in ('x', None) and
-                chess_board.val(row, col - 1) in ('x', None) and
-                chess_board.val(row, col + 1) in ('x', None) and
-                chess_board.val(row + 1, col - 1) in ('x', None) and
-                chess_board.val(row + 1, col) in ('x', None) and
-                chess_board.val(row + 1, col + 1) in ('x', None))
-
-    def place(self, row, col, chess_board):
-        chess_board.take(row, col, repr(self))
-        chess_board.take(row - 1, col - 1, 'x')
-        chess_board.take(row - 1, col, 'x')
-        chess_board.take(row - 1, col + 1, 'x')
-        chess_board.take(row, col - 1, 'x')
-        chess_board.take(row, col + 1, 'x')
-        chess_board.take(row + 1, col - 1, 'x')
-        chess_board.take(row + 1, col, 'x')
-        chess_board.take(row + 1, col + 1, 'x')
-
-
-class Queen(Piece):
-    """Queen piece."""
-    def available_in(self, row, col, chess_board):
-        # Diagonals
-        n_up = row - col
-        n_down = row + col
-        return (chess_board.val(row, col) is None and
-                all(chess_board.val(i + n_up, i) in ('x', None) and
-                    chess_board.val(n_down - i, i) in ('x', None) and
-                    chess_board.val(row, i) in ('x', None) for i in xrange(chess_board.n_cols) if i != col) and
-                all(chess_board.val(j, col) in ('x', None) for j in xrange(chess_board.n_rows)))
-
-    def place(self, row, col, chess_board):
-        # Diagonals
-        n_up = row - col
-        n_down = row + col
-        for i in xrange(chess_board.n_cols):
-            chess_board.take(i + n_up, i, 'x')
-            chess_board.take(n_down - i, i, 'x')
-            chess_board.take(row, i, 'x')
-        for j in xrange(chess_board.n_rows):
-            chess_board.take(j, col, 'x')
-        chess_board.take(row, col, repr(self))
+    def attacking_pos(self, row, col, chess_board):
+        for i in xrange(row - 1, row + 2):
+            for j in xrange(col - 1, col + 2):
+                if not (i == row and j == col):
+                    yield (i, j)
 
 
 class Bishop(Piece):
     """Bishop piece."""
-    def available_in(self, row, col, chess_board):
+    def attacking_pos(self, row, col, chess_board):
         # Diagonals
         n_up = row - col
         n_down = row + col
-        return (chess_board.val(row, col) is None and
-                all([chess_board.val(i + n_up, i) in ('x', None) and
-                     chess_board.val(n_down - i, i) in ('x', None) for i in xrange(chess_board.n_cols) if i != col]))
-
-    def place(self, row, col, chess_board):
-        # Diagonals
-        n_up = row - col
-        n_down = row + col
-        for i in xrange(chess_board.n_cols):
-            chess_board.take(i + n_up, i, 'x')
-            chess_board.take(n_down - i, i, 'x')
-        chess_board.take(row, col, repr(self))
+        for j in xrange(chess_board.n_cols):
+            if j != col:
+                yield (j + n_up, j)
+                yield (n_down - j, j)
 
 
 class Rook(Piece):
     """Rook piece."""
-    def available_in(self, row, col, chess_board):
-        return (all([chess_board.val(row, j) in ('x', None) for j in xrange(chess_board.n_cols)] +
-                    [chess_board.val(i, col) in ('x', None) for i in xrange(chess_board.n_rows)]))
+    def attacking_pos(self, row, col, chess_board):
+        for j in xrange(chess_board.n_cols):
+            if j != col:
+                yield (row, j)
+        for i in xrange(chess_board.n_rows):
+            if i != row:
+                yield (i, col)
 
-    def place(self, row, col, chess_board):
-        for j in xrange(0, chess_board.n_cols):
-            chess_board.take(row, j, 'x')
-        for i in xrange(0, chess_board.n_rows):
-            chess_board.take(i, col, 'x')
-        chess_board.take(row, col, repr(self))
+
+class Queen(Rook, Bishop):
+    """Queen piece."""
+    def attacking_pos(self, row, col, chess_board):
+        for bishop_tuple in Bishop.attacking_pos(self, row, col, chess_board):
+            yield bishop_tuple  # yield from in python 3.3
+        for rook_tuple in Rook.attacking_pos(self, row, col, chess_board):
+            yield rook_tuple
 
 
 class Knight(Piece):
@@ -206,27 +143,15 @@ class Knight(Piece):
     def __repr__(self):
         return 'N'  # To avoid King confusion
 
-    def available_in(self, row, col, chess_board):
-        return (chess_board.val(row, col) is None and
-                chess_board.val(row + 2, col + 1) in ('x', None) and
-                chess_board.val(row + 2, col - 1) in ('x', None) and
-                chess_board.val(row + 1, col + 2) in ('x', None) and
-                chess_board.val(row + 1, col - 2) in ('x', None) and
-                chess_board.val(row - 2, col + 1) in ('x', None) and
-                chess_board.val(row - 2, col - 1) in ('x', None) and
-                chess_board.val(row - 1, col + 2) in ('x', None) and
-                chess_board.val(row - 1, col - 2) in ('x', None))
-
-    def place(self, row, col, chess_board):
-        chess_board.take(row, col, repr(self))
-        chess_board.take(row + 2, col + 1, 'x')
-        chess_board.take(row + 2, col - 1, 'x')
-        chess_board.take(row + 1, col + 2, 'x')
-        chess_board.take(row + 1, col - 2, 'x')
-        chess_board.take(row - 2, col + 1, 'x')
-        chess_board.take(row - 2, col - 1, 'x')
-        chess_board.take(row - 1, col + 2, 'x')
-        chess_board.take(row - 1, col - 2, 'x')
+    def attacking_pos(self, row, col, chess_board):
+        yield (row + 2, col + 1)
+        yield (row + 2, col - 1)
+        yield (row + 1, col + 2)
+        yield (row + 1, col - 2)
+        yield (row - 2, col + 1)
+        yield (row - 2, col - 1)
+        yield (row - 1, col + 2)
+        yield (row - 1, col - 2)
 
 
 def lsolve(piece, piece_list, chess_board):
@@ -241,15 +166,15 @@ def lsolve(piece, piece_list, chess_board):
     """
     lsolutions = set()
     for free in chess_board.available(len(piece_list) + 1):
-        if piece.available_in(free[0], free[1], chess_board):
-            updated_chess_board = deepcopy(chess_board)
-            piece.place(free[0], free[1], updated_chess_board)
+        if chess_board.is_free(piece, free[0], free[1]):
+            chess_board.place(piece, free[0], free[1])
             if piece_list:
                 head, tail = piece_list[0], piece_list[1:]
-                new_lsolutions = lsolve(head, tail, updated_chess_board)
+                new_lsolutions = lsolve(head, tail, chess_board)
                 lsolutions = lsolutions.union(new_lsolutions)
             else:
                 lsolutions.add(str(chess_board))
+            chess_board.undo_last_placement()
     return lsolutions
 
 
