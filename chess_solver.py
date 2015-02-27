@@ -61,5 +61,5 @@ if __name__ == '__main__':
                  n_kings=args.kings, n_queens=args.queens,
                  n_bishops=args.bishops, n_rooks=args.rooks, n_knights=args.knights)
     for sol in sols:
-        sol.dump()
+        print sol
     print "\nNumber of solutions: {}".format(len(sols))

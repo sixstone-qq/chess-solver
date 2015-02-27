@@ -14,9 +14,7 @@ class SolveTestCase(TestCase):
         sols = solve(3, 3, n_kings=2, n_rooks=1)
         self.assertEqual(len(sols), 4)
         first_sol = iter(sols).next()
-        self.assertEqual(first_sol.val(2, 0), 'K')
-        self.assertEqual(first_sol.val(0, 1), 'R')
-        self.assertEqual(first_sol.val(2, 2), 'K')
+        self.assertEqual(first_sol, 'x R x\nx x x\nK x K\n')
 
     def test_2_rooks_4_Knights_4x4(self):
         sols = solve(4, 4, n_rooks=2, n_knights=4)

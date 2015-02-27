@@ -237,9 +237,9 @@ def lsolve(piece, piece_list, chess_board):
     :param chess_board: the current configuration of the chess board
     :type chess_board: :py:class:`ChessBoard`
     :returns: the local solutions
-    :rtype: :py:class:`frozenset` of :py:class:`ChessBoard` objects
+    :rtype: :py:class:`set` of string representation of the solution board
     """
-    lsolutions = frozenset()
+    lsolutions = set()
     for free in chess_board.available(len(piece_list) + 1):
         if piece.available_in(free[0], free[1], chess_board):
             updated_chess_board = deepcopy(chess_board)
@@ -249,7 +249,7 @@ def lsolve(piece, piece_list, chess_board):
                 new_lsolutions = lsolve(head, tail, updated_chess_board)
                 lsolutions = lsolutions.union(new_lsolutions)
             else:
-                lsolutions = frozenset((updated_chess_board,))
+                lsolutions.add(str(chess_board))
     return lsolutions
 
 
@@ -266,7 +266,7 @@ def solve(n_rows, n_columns, n_kings=0, n_queens=0, n_bishops=0, n_rooks=0, n_kn
     :param int n_rooks: the number of Rook pieces
     :param int n_knights: the number of Knight pieces
     :return: all the possible configurations
-    :rtype: :py:class:`frozenset` of :py:class:`ChessBoard` objects
+    :rtype: :py:class:`set` of string representation of the solution board
     """
     # Set the pieces in relative importance order
     pieces = [Queen()] * n_queens + [Rook()] * n_rooks + [Bishop()] * n_bishops + \
